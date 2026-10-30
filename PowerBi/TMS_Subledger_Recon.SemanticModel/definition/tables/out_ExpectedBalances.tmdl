@@ -1,0 +1,68 @@
+table out_ExpectedBalances
+	lineageTag: 13b3e12a-d4c6-498b-814e-510cc8d4a9be
+
+	column 'Value Date'
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: ebd963b9-1912-416e-9d67-fc59bfc42581
+		summarizeBy: none
+		sourceColumn: Value Date
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Expected Balance'
+		dataType: decimal
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		lineageTag: f689587d-3f36-4ce0-9329-3a70450e8bb5
+		summarizeBy: sum
+		sourceColumn: Expected Balance
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"currencyCulture":"en-US"}
+
+	column 'Sub-Account ID'
+		dataType: string
+		lineageTag: 7a148ce0-281f-4cbd-a6f2-5655cedb3661
+		summarizeBy: none
+		sourceColumn: Sub-Account ID
+
+		annotation SummarizationSetBy = Automatic
+
+	partition out_ExpectedBalances = m
+		mode: import
+		queryGroup: '05 Output'
+		source =
+				// out_ExpectedBalances
+				// What each client's balance SHOULD be per day, based on the TMS
+				// exploded through the hierarchy. This is the expected side of the
+				// reconciliation.
+				
+				let
+				    // Every position -> deal -> client path, per day
+				    Source = int_Level2,
+				
+				    // Add up every path that reaches the same client on the same day.
+				    // A client funded through several deals or positions gets ONE total.
+				    GroupByClientDay = Table.Group(
+				        Source,
+				        {"Value Date", "Sub-Account ID"},
+				        {
+				            {"Expected Balance", each List.Sum([Client Amount]), Currency.Type}
+				        }
+				    ),
+				
+				    // Remove rows with no client: TMS positions missing from the hierarchy.
+				    // They are reported separately in Check_UnmappedPositions,
+				    // so this money is moved to a check, not lost.
+				    RemoveUnmapped = Table.SelectRows(
+				        GroupByClientDay,
+				        each [#"Sub-Account ID"] <> null
+				    )
+				in
+				    RemoveUnmapped
+
+	annotation PBI_ResultType = Table
+

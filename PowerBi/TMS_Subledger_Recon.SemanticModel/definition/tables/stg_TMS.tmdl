@@ -1,0 +1,101 @@
+table stg_TMS
+	lineageTag: ff05c57f-827b-4360-8b7d-a95638107c88
+
+	column 'Value Date'
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: 9b23a051-9468-41da-a9db-0ff6b754ef62
+		summarizeBy: none
+		sourceColumn: Value Date
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Position ID'
+		dataType: string
+		lineageTag: 1586bdea-5355-430d-83aa-d8241738bd7b
+		summarizeBy: none
+		sourceColumn: Position ID
+
+		annotation SummarizationSetBy = Automatic
+
+	column Bank
+		dataType: string
+		lineageTag: 2e0ab48b-ac5b-4167-a766-a88b01e7fe88
+		summarizeBy: none
+		sourceColumn: Bank
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Instrument Type'
+		dataType: string
+		lineageTag: e2e6744c-faea-4b3d-8c60-491a76b6a9f0
+		summarizeBy: none
+		sourceColumn: Instrument Type
+
+		annotation SummarizationSetBy = Automatic
+
+	column Currency
+		dataType: string
+		lineageTag: deb44fd0-c7a2-4fe7-a059-fcba1d7c56aa
+		summarizeBy: none
+		sourceColumn: Currency
+
+		annotation SummarizationSetBy = Automatic
+
+	column Amount
+		dataType: decimal
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		lineageTag: 8007c650-59ac-4efd-bba6-0432e89041fa
+		summarizeBy: sum
+		sourceColumn: Amount
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"currencyCulture":"en-US"}
+
+	partition stg_TMS = m
+		mode: import
+		queryGroup: '03 Staging'
+		source =
+				// stg_TMS
+				// Staging: TMS positions (top level), one row per position per day.
+				// Reads tms_positions.xlsx from the data folder, promotes headers, sets types.
+				
+				let
+				    // All files in the data folder (folder path comes from the DataFolder parameter)
+				    Source = src_DataFolder,
+				
+				    // Keep only the TMS file
+				    FilterToFile = Table.SelectRows(Source, each [Name] = "tms_positions.xlsx"),
+				
+				    // Get the file's contents by name only, so the query works from any folder
+				    FileContent = FilterToFile{[Name = "tms_positions.xlsx"]}[Content],
+				
+				    // Open the workbook (true = delay type detection; we set types ourselves below)
+				    Workbook = Excel.Workbook(FileContent, null, true),
+				
+				    // Select the Positions sheet
+				    PositionsSheet = Workbook{[Item = "Positions", Kind = "Sheet"]}[Data],
+				
+				    // First row holds the column names
+				    PromoteHeaders = Table.PromoteHeaders(PositionsSheet, [PromoteAllScalars = true]),
+				
+				    // Set types: dates, text, and fixed decimal for money
+				    SetTypes = Table.TransformColumnTypes(
+				        PromoteHeaders,
+				        {
+				            {"Value Date",      type date},
+				            {"Position ID",     type text},
+				            {"Bank",            type text},
+				            {"Instrument Type", type text},
+				            {"Currency",        type text},
+				            {"Amount",          Currency.Type}
+				        }
+				    )
+				in
+				    SetTypes
+
+	annotation PBI_ResultType = Table
+

@@ -1,0 +1,291 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
+  "name": "d14227dd5a8013368b8c",
+  "position": {
+    "x": 1176,
+    "y": 103,
+    "z": 7000,
+    "height": 772,
+    "width": 624,
+    "tabOrder": 3000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "out_Reconciliation"
+                    }
+                  },
+                  "Property": "Date"
+                }
+              },
+              "queryRef": "out_Reconciliation.Date",
+              "nativeQueryRef": "Date"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "out_Reconciliation"
+                    }
+                  },
+                  "Property": "Account"
+                }
+              },
+              "queryRef": "out_Reconciliation.Account",
+              "nativeQueryRef": "Account"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "out_Reconciliation"
+                        }
+                      },
+                      "Property": "Expected Balance"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(out_Reconciliation.Expected Balance)",
+              "nativeQueryRef": "Expected",
+              "displayName": "Expected"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "out_Reconciliation"
+                        }
+                      },
+                      "Property": "Actual Balance"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(out_Reconciliation.Actual Balance)",
+              "nativeQueryRef": "Actual",
+              "displayName": "Actual"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "out_Reconciliation"
+                        }
+                      },
+                      "Property": "Difference"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(out_Reconciliation.Difference)",
+              "nativeQueryRef": "Difference",
+              "displayName": "Difference"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "out_Reconciliation"
+                    }
+                  },
+                  "Property": "Status"
+                }
+              },
+              "queryRef": "out_Reconciliation.Status",
+              "nativeQueryRef": "Status"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Aggregation": {
+                "Expression": {
+                  "Column": {
+                    "Expression": {
+                      "SourceRef": {
+                        "Entity": "out_Reconciliation"
+                      }
+                    },
+                    "Property": "Difference"
+                  }
+                },
+                "Function": 0
+              }
+            },
+            "direction": "Descending"
+          }
+        ]
+      }
+    },
+    "objects": {
+      "columnWidth": [
+        {
+          "properties": {},
+          "selector": {
+            "metadata": "out_Reconciliation.Date"
+          }
+        },
+        {
+          "properties": {},
+          "selector": {
+            "metadata": "out_Reconciliation.Account"
+          }
+        },
+        {
+          "properties": {},
+          "selector": {
+            "metadata": "Sum(out_Reconciliation.Expected Balance)"
+          }
+        },
+        {
+          "properties": {},
+          "selector": {
+            "metadata": "Sum(out_Reconciliation.Actual Balance)"
+          }
+        },
+        {
+          "properties": {},
+          "selector": {
+            "metadata": "Sum(out_Reconciliation.Difference)"
+          }
+        }
+      ],
+      "columnHeaders": [
+        {
+          "properties": {}
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Break Detail'"
+                }
+              }
+            },
+            "alignment": {
+              "expr": {
+                "Literal": {
+                  "Value": "'center'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "color": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "ThemeDataColor": {
+                      "ColorId": 3,
+                      "Percent": 0
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  },
+  "filterConfig": {
+    "filters": [
+      {
+        "name": "33e6e506c6d44901925d",
+        "field": {
+          "Measure": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "_measures"
+              }
+            },
+            "Property": "Break Count"
+          }
+        },
+        "type": "Advanced",
+        "filter": {
+          "Version": 2,
+          "From": [
+            {
+              "Name": "_",
+              "Entity": "_measures",
+              "Type": 0
+            }
+          ],
+          "Where": [
+            {
+              "Condition": {
+                "Not": {
+                  "Expression": {
+                    "Comparison": {
+                      "ComparisonKind": 0,
+                      "Left": {
+                        "Measure": {
+                          "Expression": {
+                            "SourceRef": {
+                              "Source": "_"
+                            }
+                          },
+                          "Property": "Break Count"
+                        }
+                      },
+                      "Right": {
+                        "Literal": {
+                          "Value": "null"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "howCreated": "User"
+      }
+    ]
+  }
+}

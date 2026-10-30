@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Report",
+    "displayName": "TMS_Subledger_Recon"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "2acbea04-f886-4c19-8ecf-5fd93d3eb04f"
+  }
+}

@@ -1,0 +1,87 @@
+table Check_UnmappedPositions
+	lineageTag: a16c26f1-65de-4b93-9509-2892ebadfad9
+
+	column 'Value Date'
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: f2a249a2-5ec0-4617-a79f-7cfb12e95c9c
+		summarizeBy: none
+		sourceColumn: Value Date
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Position ID'
+		dataType: string
+		lineageTag: 631e6bd1-2e6c-419b-b661-3d6dc10c9f14
+		summarizeBy: none
+		sourceColumn: Position ID
+
+		annotation SummarizationSetBy = Automatic
+
+	column Bank
+		dataType: string
+		lineageTag: dd83b528-e2b3-4c08-8961-077b6d7e0eb9
+		summarizeBy: none
+		sourceColumn: Bank
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Instrument Type'
+		dataType: string
+		lineageTag: 9e9ef6c6-b0e2-4371-9ffc-0358319bdc55
+		summarizeBy: none
+		sourceColumn: Instrument Type
+
+		annotation SummarizationSetBy = Automatic
+
+	column Currency
+		dataType: string
+		lineageTag: df93dd4e-ace3-4ca5-901f-6be169f0e433
+		summarizeBy: none
+		sourceColumn: Currency
+
+		annotation SummarizationSetBy = Automatic
+
+	column Amount
+		dataType: decimal
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		lineageTag: d1b85931-1a2a-48fa-b823-d2cdf1931e32
+		summarizeBy: sum
+		sourceColumn: Amount
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"currencyCulture":"en-US"}
+
+	partition Check_UnmappedPositions = m
+		mode: import
+		queryGroup: '06 Quality Checks'
+		source =
+				// Check_UnmappedPositions
+				// Quality check: TMS positions that have no entry in the hierarchy.
+				// Their money can't be allocated to any client, so it would never
+				// reach the reconciliation. Any row returned needs a hierarchy update.
+				// Expected result: no rows. (The test data plants one: TBILL-NEW.)
+				
+				let
+				    // TMS positions, one row per position per day
+				    Source = stg_TMS,
+				
+				    // Left Anti join: keep only positions with NO matching Parent ID
+				    // in the hierarchy (the opposite of an inner join)
+				    FindUnmapped = Table.NestedJoin(
+				        Source, {"Position ID"},
+				        stg_Hierarchy, {"Parent ID"},
+				        "Hierarchy",
+				        JoinKind.LeftAnti
+				    ),
+				
+				    // The merged column is always empty for unmatched rows, so drop it
+				    RemoveEmptyColumn = Table.RemoveColumns(FindUnmapped, {"Hierarchy"})
+				in
+				    RemoveEmptyColumn
+
+	annotation PBI_ResultType = Table
+

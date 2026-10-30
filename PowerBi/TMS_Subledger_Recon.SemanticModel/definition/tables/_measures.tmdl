@@ -1,0 +1,61 @@
+table _measures
+	lineageTag: cdb7fcc0-d89a-46d6-9db0-7660987a94bd
+
+	measure 'Total Rows' = COUNTROWS( out_Reconciliation)
+		formatString: 0
+		lineageTag: cb31b1df-8a2b-4919-be0d-bb395101b87a
+
+	measure 'Matched Rows' = CALCULATE( COUNTROWS( out_Reconciliation), out_Reconciliation[Status] = "Matched")
+		formatString: 0
+		lineageTag: d6a99e0b-a395-440d-9d87-2375bb1f603f
+
+	measure 'Break Count' =
+			
+			CALCULATE (
+			    COUNTROWS ( out_Reconciliation ),
+			    KEEPFILTERS ( out_Reconciliation[Status] <> "Matched" )   // add to the visual's filter, don't replace it
+			)
+		formatString: 0
+		lineageTag: 68cd98c3-2561-488e-a2dd-b3c504b82790
+
+	measure 'Match %' = DIVIDE( [Matched Rows], [Total Rows])
+		formatString: 0.0%;-0.0%;0.0%
+		lineageTag: 59859dbf-1b41-4038-80d4-bed27cbdc1b1
+
+	measure 'Net Difference' = SUM(out_Reconciliation[Difference])
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		lineageTag: c56f7d7d-301d-4a99-b37f-978cafc39e8d
+
+	measure 'Gross Difference' =
+			
+			SUMX (
+			    out_Reconciliation,                       // go row by row
+			    ABS ( out_Reconciliation[Difference] )    // make each difference positive, then add up
+			)
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		lineageTag: be79237a-ea67-4f74-8228-793404aeebb8
+
+	measure Measure
+		lineageTag: de2d546f-6655-4c02-a1db-e20ec27bc680
+
+		annotation 43dbc3e8-3a1c-4b6f-9923-b49ff7d6691c = True
+
+	measure 'Unmapped TMS $' =
+			
+			SUM ( Check_UnmappedPositions[Amount] )
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		lineageTag: f0e8e287-1991-42d9-8676-aee4c938e8ad
+
+		annotation PBI_FormatHint = {"currencyCulture":"en-US"}
+
+	partition _measures = m
+		mode: import
+		source =
+				let
+				  Source = Table.FromRows(Json.Document(Binary.Decompress(Binary.FromText("i44FAA==", BinaryEncoding.Base64), Compression.Deflate)), let _t = ((type nullable text) meta [Serialized.Text = true]) in type table [Column1 = _t]),
+				    #"Removed Columns" = Table.RemoveColumns(Source,{"Column1"})
+				in
+				  #"Removed Columns"
+
+	annotation PBI_ResultType = Table
+

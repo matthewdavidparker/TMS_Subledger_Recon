@@ -1,0 +1,55 @@
+table Check_ShareTotals
+	lineageTag: fbe882a1-28d3-4c85-ba51-69bf4b821827
+
+	column 'Parent ID'
+		dataType: string
+		lineageTag: fbacc286-c55b-4c38-8966-8d2b3d3cedc3
+		summarizeBy: none
+		sourceColumn: Parent ID
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Total Share'
+		dataType: double
+		lineageTag: 7cf3aae9-c76c-4e73-88b8-8b5be48c04b8
+		summarizeBy: sum
+		sourceColumn: Total Share
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition Check_ShareTotals = m
+		mode: import
+		queryGroup: '06 Quality Checks'
+		source =
+				// Check_ShareTotals
+				// Quality check: the shares under every parent should add up to 100%.
+				// Any row returned is a mapping error in the hierarchy.
+				// Expected result: no rows. (The test data plants one: DEAL-E at 99%.)
+				
+				let
+				    // The allocation hierarchy: Parent ID, Child ID, Share
+				    Source = stg_Hierarchy,
+				
+				    // Add up the shares under each parent
+				    SumSharesByParent = Table.Group(
+				        Source,
+				        {"Parent ID"},
+				        {
+				            {"Total Share", each List.Sum([Share]), type number}
+				        }
+				    ),
+				
+				    // Keep parents whose shares don't add up to 1.
+				    // Round to 4 decimals first: decimals are stored imperfectly,
+				    // so 0.1 + 0.2 + 0.7 can come out as 0.9999999999 and trigger a false alarm.
+				    KeepBadTotals = Table.SelectRows(
+				        SumSharesByParent,
+				        each Number.Round([Total Share], 4) <> 1
+				    )
+				in
+				    KeepBadTotals
+
+	annotation PBI_ResultType = Table
+

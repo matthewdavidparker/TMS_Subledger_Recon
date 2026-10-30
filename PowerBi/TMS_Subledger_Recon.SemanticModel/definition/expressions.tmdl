@@ -1,0 +1,137 @@
+expression DataFolder = "D:\projects\TMS_Subledger_Recon\data\" meta [IsParameterQuery = true, Type = "Text", IsParameterQueryRequired = true]
+	lineageTag: bd3ec22e-5078-4f27-8c5c-d51a3b3c8eff
+	queryGroup: '01 Parameters'
+
+	annotation PBI_ResultType = Text
+
+expression src_DataFolder =
+		// src_DataFolder
+		// Source: lists every file in the data folder. The staging queries
+		// each pick out one file by name. Change the folder in the DataFolder
+		// parameter, not here.
+		
+		let
+		    Source = Folder.Files(DataFolder)
+		in
+		    Source
+	lineageTag: 7dc87e41-97ef-40d5-88e7-5a23d0015fcd
+	queryGroup: '02 Source'
+
+	annotation PBI_ResultType = Table
+
+expression int_Level1 =
+		// int_Level1
+		// Explode level 1: split each TMS position across the deals it funds.
+		// One position row becomes one row per deal, with the amount split by Share.
+		
+		let
+		    // TMS positions, one row per position per day
+		    Source = stg_TMS,
+		
+		    // Match each position to its child deals in the hierarchy.
+		    // Left Outer keeps positions with NO mapping (e.g. TBILL-NEW) as rows
+		    // with blank Child ID, so unmapped money never disappears silently.
+		    MergeHierarchy = Table.NestedJoin(
+		        Source, {"Position ID"},
+		        stg_Hierarchy, {"Parent ID"},
+		        "Hierarchy",
+		        JoinKind.LeftOuter
+		    ),
+		
+		    // Bring in the deal (Child ID) and its share of the position.
+		    // A position with 3 deals now appears on 3 rows.
+		    ExpandHierarchy = Table.ExpandTableColumn(
+		        MergeHierarchy, "Hierarchy",
+		        {"Child ID", "Share"},
+		        {"Child ID", "Share"}
+		    ),
+		
+		    // The deal's portion of the position: Amount x Share.
+		    // Unmapped positions have a null Share, so Allocated is null too.
+		    AddAllocated = Table.AddColumn(
+		        ExpandHierarchy, "Allocated",
+		        each [Amount] * [Share],
+		        Currency.Type
+		    )
+		in
+		    AddAllocated
+	lineageTag: 1e8cb485-dfad-4b79-aceb-24cae2ee090c
+	queryGroup: '04 Intermediate'
+
+	annotation PBI_ResultType = Table
+
+expression int_Level2 =
+		// int_Level2
+		// Explode level 2: split each deal's amount across its client sub-accounts.
+		// Rows now represent one path: position -> deal -> client, per day.
+		
+		let
+		    // Positions already split into deals (from level 1)
+		    Source = int_Level1,
+		
+		    // Rename the level-1 columns so they don't collide with the next merge
+		    RenameDealColumns = Table.RenameColumns(
+		        Source,
+		        {
+		            {"Child ID",  "Deal ID"},
+		            {"Share",     "Deal Share"},
+		            {"Allocated", "Deal Amount"}
+		        }
+		    ),
+		
+		    // Match each deal to its client sub-accounts in the same hierarchy table.
+		    // Left Outer keeps unmapped rows (e.g. TBILL-NEW) flowing through.
+		    MergeHierarchy = Table.NestedJoin(
+		        RenameDealColumns, {"Deal ID"},
+		        stg_Hierarchy, {"Parent ID"},
+		        "Hierarchy",
+		        JoinKind.LeftOuter
+		    ),
+		
+		    // Bring in the client and its share of the deal, renaming as we expand
+		    ExpandHierarchy = Table.ExpandTableColumn(
+		        MergeHierarchy, "Hierarchy",
+		        {"Child ID",       "Share"},
+		        {"Sub-Account ID", "Client Share"}
+		    ),
+		
+		    // The client's portion of this path: Deal Amount x Client Share
+		    AddClientAmount = Table.AddColumn(
+		        ExpandHierarchy, "Client Amount",
+		        each [Deal Amount] * [Client Share],
+		        Currency.Type
+		    )
+		in
+		    AddClientAmount
+	lineageTag: ea11594a-e51a-4b9c-8667-190c7d8e173c
+	queryGroup: '04 Intermediate'
+
+	annotation PBI_ResultType = Table
+
+expression int_SubledgerTotals =
+		// int_SubledgerTotals
+		// Rolls the subledger up to one row per client per day, and counts how many
+		// source rows went into each total. A Row Count above 1 means a duplicate.
+		
+		let
+		    // Subledger balances, which SHOULD already be one row per client per day
+		    Source = stg_Subledger,
+		
+		    // Group by date + client: sum the balance and count the rows.
+		    // Grouping protects the reconciliation if the source isn't clean;
+		    // a duplicate shows up as a doubled balance AND a Row Count of 2.
+		    GroupByClientDay = Table.Group(
+		        Source,
+		        {"Balance Date", "Sub-Account ID"},
+		        {
+		            {"Actual Balance", each List.Sum([Balance]),  Currency.Type},
+		            {"Row Count",      each Table.RowCount(_),    Int64.Type}
+		        }
+		    )
+		in
+		    GroupByClientDay
+	lineageTag: 31662a44-d9e2-4140-a814-e30acd9f09e1
+	queryGroup: '04 Intermediate'
+
+	annotation PBI_ResultType = Table
+

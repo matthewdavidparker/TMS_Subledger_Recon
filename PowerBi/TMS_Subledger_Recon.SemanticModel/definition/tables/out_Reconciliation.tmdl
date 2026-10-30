@@ -1,0 +1,174 @@
+table out_Reconciliation
+	lineageTag: 97514ae0-6b0b-489e-b196-aafd7169e9d2
+
+	column 'Value Date'
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: ef29433b-a832-409a-884f-be449aedc22a
+		summarizeBy: none
+		sourceColumn: Value Date
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Expected Balance'
+		dataType: decimal
+		formatString: \$#,0;(\$#,0);\$#,0
+		lineageTag: eec4052d-9efd-4a20-99a6-03b2d7bbc473
+		summarizeBy: sum
+		sourceColumn: Expected Balance
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"currencyCulture":"en-US"}
+
+	column 'SL Date'
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: 9cb9513d-0e9c-4a79-8928-8644ae612c3e
+		summarizeBy: none
+		sourceColumn: SL Date
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'SL Sub-Account ID'
+		dataType: string
+		lineageTag: 25d05241-1ba2-4f56-8457-a2f0da819b48
+		summarizeBy: none
+		sourceColumn: SL Sub-Account ID
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Actual Balance'
+		dataType: decimal
+		formatString: \$#,0;(\$#,0);\$#,0
+		lineageTag: 3f3dffd8-3d3a-44f6-b597-14b99ff03f47
+		summarizeBy: sum
+		sourceColumn: Actual Balance
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"currencyCulture":"en-US"}
+
+	column 'SL Row Count'
+		dataType: int64
+		formatString: 0
+		lineageTag: cebdd6c5-b0d6-432c-a5b2-a5bac3a94256
+		summarizeBy: sum
+		sourceColumn: SL Row Count
+
+		annotation SummarizationSetBy = Automatic
+
+	column Date
+		dataType: dateTime
+		formatString: Short Date
+		lineageTag: b6844edc-8bd6-4525-ab8a-ce5de9da4d1f
+		summarizeBy: none
+		sourceColumn: Date
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column Account
+		dataType: string
+		lineageTag: cb51ad54-fece-4317-8856-e116968f7b2b
+		summarizeBy: none
+		sourceColumn: Account
+
+		annotation SummarizationSetBy = Automatic
+
+	column Difference
+		dataType: double
+		formatString: \$#,0;(\$#,0);\$#,0
+		lineageTag: 3ba1e9cc-0242-41a5-ace9-8e743a635b20
+		summarizeBy: sum
+		sourceColumn: Difference
+
+		annotation SummarizationSetBy = Automatic
+
+	column Status
+		dataType: string
+		lineageTag: 3da08afc-f74e-4680-9055-019e8750b706
+		summarizeBy: none
+		sourceColumn: Status
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Sub-Account ID'
+		dataType: string
+		lineageTag: 329426c2-6f70-4b2e-b03d-2fde2f5b5560
+		summarizeBy: none
+		sourceColumn: Sub-Account ID
+
+		annotation SummarizationSetBy = Automatic
+
+	partition out_Reconciliation = m
+		mode: import
+		queryGroup: '05 Output'
+		source =
+				// out_Reconciliation
+				// Compares expected client balances (TMS exploded through the hierarchy)
+				// to actual client balances (subledger), one row per client per day.
+				
+				let
+				    // Expected side: TMS positions exploded to client level and summed
+				    Source = out_ExpectedBalances,
+				
+				    // Full outer join on date + client so rows missing from EITHER side are kept
+				    MergeSubledger = Table.NestedJoin(
+				        Source, {"Value Date", "Sub-Account ID"},
+				        int_SubledgerTotals, {"Balance Date", "Sub-Account ID"},
+				        "Subledger",
+				        JoinKind.FullOuter
+				    ),
+				
+				    // Bring in the subledger columns; "SL" prefix marks the subledger side
+				    ExpandSubledger = Table.ExpandTableColumn(
+				        MergeSubledger, "Subledger",
+				        {"Balance Date", "Sub-Account ID", "Actual Balance", "Row Count"},
+				        {"SL Date", "SL Sub-Account ID", "Actual Balance", "SL Row Count"}
+				    ),
+				
+				    // Single date key: use the expected date, or the subledger date if expected is missing
+				    AddDate = Table.AddColumn(
+				        ExpandSubledger, "Date",
+				        each [Value Date] ?? [SL Date],
+				        type date
+				    ),
+				
+				    // Single account key: same idea as the date
+				    AddAccount = Table.AddColumn(
+				        AddDate, "Account",
+				        each [#"Sub-Account ID"] ?? [#"SL Sub-Account ID"],
+				        type text
+				    ),
+				
+				    // Actual minus expected; a missing side counts as 0 so the full amount shows
+				    AddDifference = Table.AddColumn(
+				        AddAccount, "Difference",
+				        each ([Actual Balance] ?? 0) - ([Expected Balance] ?? 0),
+				        type number
+				    ),
+				
+				    // Label each row. Order matters: structural problems are checked
+				    // before amounts, so a missing or duplicate row is never mislabeled
+				    // as a simple balance break. Tolerance of $0.01 absorbs rounding.
+				    AddStatus = Table.AddColumn(
+				        AddDifference, "Status",
+				        each
+				            if [Expected Balance] = null then "Subledger only"
+				            else if [Actual Balance] = null then "Missing in subledger"
+				            else if [SL Row Count] > 1 then "Duplicate in subledger"
+				            else if Number.Abs([Difference]) > 0.01 then "Balance break"
+				            else "Matched",
+				        type text
+				    )
+				in
+				    AddStatus
+
+	annotation PBI_ResultType = Table
+
