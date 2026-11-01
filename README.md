@@ -1,6 +1,6 @@
 # TMS_Subledger_Recon: Multi-Level Hierarchy Reconciliation
 
-Reconcile summary-level positions in a treasury management system (TMS) to client-level balances in a subledger, when the subledger sits **two levels below** the TMS. Built in Power Query and Power BI, with a reusable pattern for exploding amounts through a hierarchy, a full two-way reconciliation, labeled breaks, and data quality checks.
+Reconcile summary-level positions in a treasury management system (TMS) to client-level balances in a subledger, when the subledger sits **two levels below** the TMS. Built in Power Query and Power BI, then rebuilt in Python (pandas) and cross-checked row for row, with a reusable pattern for exploding amounts through a hierarchy, a full two-way reconciliation, labeled breaks, and data quality checks.
 
 ![Reconciliation report](images/TMS_report.png)
 
@@ -70,6 +70,16 @@ The synthetic data has six problems planted on purpose. All six were found.
 
 **Net vs. gross difference:** the report shows both. Net difference (about −$2.1M) lets positive and negative breaks offset; gross difference (about $25.2M) shows the true size of what needs fixing.
 
+## Python version and cross-check
+
+The same reconciliation is rebuilt in Python with pandas (`python/reconcile_hierarchy.py`): load the three sources, explode positions through both hierarchy levels with left joins, sum every path per client per day, reconcile against the subledger with an outer join, label every break, and run both quality checks.
+
+A second script (`python/crosscheck.py`) compares the Python output to the Power Query output on every row, amount, and status label.
+
+**Result: 190 of 190 rows matched, with zero amount or status differences.**
+
+The first cross-check actually flagged 178 differences. Tracing them showed both pipelines were correct: copying the table out of Power BI exported the amounts rounded to whole dollars. After exporting at full precision, the two versions matched exactly. A reconciliation is only as good as the data handed to it, and a break should be explained before it is trusted or dismissed.
+
 ## Query flow
 
 ![Query diagram](images/TMS_diagram_view.png)
@@ -97,6 +107,12 @@ TMS_Subledger_Recon/
 │   ├── TMS_Subledger_Recon.pbip     # Power BI Project (queries, model and report as text)
 │   ├── TMS_Subledger_Recon.Report/
 │   └── TMS_Subledger_Recon.SemanticModel/
+├── python/
+│   ├── reconcile_hierarchy.py       # Python (pandas) version of the reconciliation
+│   └── crosscheck.py                # compares Python vs. Power Query output
+├── output/
+│   ├── recon_python.csv             # written by reconcile_hierarchy.py
+│   └── recon_powerquery.csv         # exported from Power BI, for the cross-check
 └── images/
     ├── TMS_report.png
     └── TMS_diagram_view.png
@@ -110,6 +126,8 @@ TMS_Subledger_Recon/
 4. Click **Refresh**.
 
 To regenerate the test data: `pip install pandas openpyxl`, then `python make_data.py`.
+
+**Python version:** `pip install pandas openpyxl`, then from the project folder run `python python/reconcile_hierarchy.py` followed by `python python/crosscheck.py`.
 
 ## Notes
 

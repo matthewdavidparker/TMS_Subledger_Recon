@@ -14,7 +14,7 @@ table out_Reconciliation
 
 	column 'Expected Balance'
 		dataType: decimal
-		formatString: \$#,0;(\$#,0);\$#,0
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
 		lineageTag: eec4052d-9efd-4a20-99a6-03b2d7bbc473
 		summarizeBy: sum
 		sourceColumn: Expected Balance
@@ -44,7 +44,7 @@ table out_Reconciliation
 
 	column 'Actual Balance'
 		dataType: decimal
-		formatString: \$#,0;(\$#,0);\$#,0
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
 		lineageTag: 3f3dffd8-3d3a-44f6-b597-14b99ff03f47
 		summarizeBy: sum
 		sourceColumn: Actual Balance
@@ -83,12 +83,14 @@ table out_Reconciliation
 
 	column Difference
 		dataType: double
-		formatString: \$#,0;(\$#,0);\$#,0
+		formatString: \$#,0.0000;(\$#,0.0000);\$#,0.0000
 		lineageTag: 3ba1e9cc-0242-41a5-ace9-8e743a635b20
 		summarizeBy: sum
 		sourceColumn: Difference
 
 		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"currencyCulture":"en-US"}
 
 	column Status
 		dataType: string
